@@ -1,3 +1,6 @@
+// Import required packages.
+using DocumentFormat.OpenXml.Packaging;         // Needed for WordProcessingDocument.
+using DocumentFormat.OpenXml.Wordprocessing;    // Needed for all Word schema objects (Body, Paragraph, etc.)
 namespace TemplateParser.Core;
 
 public sealed class DocxParser
@@ -7,6 +10,51 @@ public sealed class DocxParser
         // TODO (Week 1-4): Implement core DOCX parsing here.
         // Recommended responsibilities for this method:
         // 1) [Week 1] Learn DOCX structure and print paragraphs from the document.
+        // Objective: Create a ReadAllParagraphs() method
+        // Objective: Enumerate all paragraph styles and text
+        /* Steps:
+            1. Open the word document in read mode.
+            2. Parse the document.xml into XML object using the DocumentFormat.OpenXml library.
+            3. Loop through every paragraph.
+            4. Extract and display the paragraph style.
+            5. Extract and display the actual text.
+        */
+       static void ReadAllParagraphs(string filepath)
+        {
+            // 1. Open the word document in read mode.
+            // 2. Parse the document.xml into XML object using the DocumentFormat.OpenXml library.
+            using (WordprocessingDocument wordProcessingDocument = WordprocessingDocument.Open(filepath, false))
+            {
+                // The original line we wrote in class:
+                // Body body = wordProcessingDocument.MainDocumentPart.Document.Body;
+                
+                // A more robust version that fails gracefully if the document is not structured properly:
+                Body? body = wordProcessingDocument?.MainDocumentPart?.Document?.Body;
+                ArgumentNullException.ThrowIfNull(body, "Document is empty.");
+                
+                // 3. Loop through every paragraph.
+                foreach (Paragraph p in body.Descendants<Paragraph>())
+                {
+                    // 4. Extract and display the paragraph style.
+                    // The original line we wrote in class:
+                    // string style = p?.ParagraphProperties?.ParagraphStyleId?.Val;
+                    // A more robust version:
+                    string? style = p?.ParagraphProperties?.ParagraphStyleId?.Val ?? "No Style";
+                    Console.WriteLine(style);
+
+                    // 5. Extract and display the actual text.
+                    string? text = p?.InnerText;
+                    Console.WriteLine(text);
+
+                    // I added the following line to space the output out a little better:
+                    Console.WriteLine("--------------------------------");
+                }
+            }
+        }
+
+        // Our script needs to actually call the function:
+        string path = "../../../../Sample Document.docx";
+        ReadAllParagraphs(path);
         // 2) [Week 2] Build section hierarchy using Word heading styles.
         // 3) [Week 3] Detect tables, lists, and images as structured content nodes.
         // 4) [Week 4] Add formatting heuristics for files missing heading styles.
