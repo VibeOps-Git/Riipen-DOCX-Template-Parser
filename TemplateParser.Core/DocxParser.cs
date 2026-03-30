@@ -10,6 +10,7 @@ public sealed class DocxParser
         // TODO (Week 1-4): Implement core DOCX parsing here.
         // Recommended responsibilities for this method:
         // 1) [Week 1] Learn DOCX structure and print paragraphs from the document.
+
         // Objective: Create a ReadAllParagraphs() method
         // Objective: Enumerate all paragraph styles and text
         /* Steps:
@@ -19,11 +20,10 @@ public sealed class DocxParser
             4. Extract and display the paragraph style.
             5. Extract and display the actual text.
         */
-       static void ReadAllParagraphs(string filepath)
-        {
+   
             // 1. Open the word document in read mode.
             // 2. Parse the document.xml into XML object using the DocumentFormat.OpenXml library.
-            using (WordprocessingDocument wordProcessingDocument = WordprocessingDocument.Open(filepath, false))
+            using (WordprocessingDocument wordProcessingDocument = WordprocessingDocument.Open(filePath, false))
             {
                 // The original line we wrote in class:
                 // Body body = wordProcessingDocument.MainDocumentPart.Document.Body;
@@ -50,11 +50,7 @@ public sealed class DocxParser
                     Console.WriteLine("--------------------------------");
                 }
             }
-        }
 
-        // Our script needs to actually call the function:
-        string path = "../../../../Sample Document.docx";
-        ReadAllParagraphs(path);
         // 2) [Week 2] Build section hierarchy using Word heading styles.
         // 3) [Week 3] Detect tables, lists, and images as structured content nodes.
         // 4) [Week 4] Add formatting heuristics for files missing heading styles.
