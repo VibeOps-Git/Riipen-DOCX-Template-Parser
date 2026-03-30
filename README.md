@@ -1,6 +1,6 @@
 # TemplateParser.NET
 
-TemplateParser.NET is a beginner-friendly .NET 8 starter repository for a 6-week practicum where you will build a DOCX template parser from scratch.
+TemplateParser.NET is a beginner-friendly .NET 10 starter repository for a 6-week practicum where you will build a DOCX template parser from scratch.
 
 This repo is intentionally scaffolded with almost no parser logic so you can practice designing and implementing it yourself.
 
@@ -76,6 +76,12 @@ From the repo root:
 
 ```bash
 dotnet run --project TemplateParser.Cli -- parse <filePath> <templateId>
+```
+
+Shorter option from the repo root (recommended):
+
+```bash
+./parse <filePath> <templateId>
 ```
 
 From inside `TemplateParser.Cli`:

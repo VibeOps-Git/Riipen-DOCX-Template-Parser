@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: ./parse <filePath> <templateId>"
+  exit 1
+fi
+
+file_path="$1"
+template_id="$2"
+
+dotnet run --project TemplateParser.Cli -- parse "$file_path" "$template_id"
