@@ -51,9 +51,27 @@ try
     // - [Week 6] Add structured logging for debugging parse failures
     // - Keep CLI focused on input/output flow only
     // Important: actual DOCX parsing should stay in TemplateParser.Core, not here.
-    if (args.Length >= 4 && string.Equals(args[3], "--out", StringComparison.OrdinalIgnoreCase))
+
+    string? outputPath = null;
+    // Look for --out flag and value
+    for (int i = 3; i < args.Length; i++)
     {
-        var outputPath = "output.json";
+        if (string.Equals(args[i], "--out", StringComparison.OrdinalIgnoreCase))
+        {
+            if (i + 1 < args.Length)
+            {
+                outputPath = args[i + 1];
+            }
+            else
+            {
+                Console.Error.WriteLine("Missing value for --out flag.");
+                return;
+            }
+        }
+    }
+
+    if (!string.IsNullOrEmpty(outputPath))
+    {
         File.WriteAllText(outputPath, json);
         Console.WriteLine($"Wrote parser output to {outputPath}");
     }
@@ -62,9 +80,16 @@ try
         Console.WriteLine(json);
     }
 }
-catch (NotImplementedException)
-{
     // TODO (Week 6): Replace this temporary message with robust error handling.
     // Example: map known parser exceptions to user-friendly console output and exit codes.
-    Console.Error.WriteLine("Parser implementation is intentionally incomplete in this starter repository.");
+catch (NotImplementedException)
+{
+    Console.Error.WriteLine("Parser not fully implemented.");
+    Environment.Exit(1);
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("Error during parsing:");
+    Console.Error.WriteLine(ex.Message);
+    Environment.Exit(1);
 }

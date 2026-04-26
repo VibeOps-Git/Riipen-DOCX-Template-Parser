@@ -45,7 +45,7 @@ public sealed class DocxParser
             // Week 3:
             8. Detect images by looking for Drawing elements within the paragraph
             9. Detect lists by checking for NumberingProperties in paragraph properties
-            10. Classify remaining text content as either "Sentence" or "Paragraph" based on heuristics
+            10. Classify remaining text content
             11. Detect tables by checking for Table elements at the body level
 
             // Week 4:
@@ -55,8 +55,10 @@ public sealed class DocxParser
         */
             // Result object that will collect all parsed nodes (headings)
             var result = new ParserResult();
+            // Counter to generate deterministic GUIDs for nodes
+             int idCounter = 1;
             // Tracks ordering of nodes as they appear in the document
-            int orderIndex = 0;
+            var childOrderMap = new Dictionary<Guid?, int>();
             // Stack used to maintain hierarchy of headings
             // Each entry stores the heading level and its corresponding node
             var stack = new Stack<(int Level, Node Node)>();
@@ -69,7 +71,7 @@ public sealed class DocxParser
                 // Body body = wordProcessingDocument.MainDocumentPart.Document.Body;
                 
                 // A more robust version that fails gracefully if the document is not structured properly:
-                Body? body = wordProcessingDocument?.MainDocumentPart?.Document?.Body;
+                Body? body = wordProcessingDocument.MainDocumentPart?.Document?.Body;
                 ArgumentNullException.ThrowIfNull(body, "Document is empty.");
                 
                 // Convert to list so we can manually control index
@@ -96,22 +98,28 @@ public sealed class DocxParser
                         {
                             int level = ExtractHeadingLevel(style);
 
-                            var node = new Node
-                            {
-                                Id = Guid.NewGuid(),
-                                TemplateId = templateId,
-                                Type = style,
-                                Title = text,
-                                OrderIndex = orderIndex++,
-                                MetadataJson = "{}"
-                            };
-
                             while (stack.Count > 0 && stack.Peek().Level >= level)
                             {
                                 stack.Pop();
                             }
 
-                            node.ParentId = stack.Count > 0 ? stack.Peek().Node.Id : null;
+                            Guid? parentId = GetCurrentParentId(stack);
+
+                            if (!childOrderMap.ContainsKey(parentId))
+                                childOrderMap[parentId] = 0;
+
+                            int localOrder = childOrderMap[parentId]++;
+
+                            var node = new Node
+                            {
+                                ParentId = parentId,
+                                Id = GenerateDeterministicGuid(idCounter++),
+                                TemplateId = templateId,
+                                Type = MapHeadingType(level),
+                                Title = text,
+                                OrderIndex = localOrder,
+                                MetadataJson = null
+                            };
 
                             stack.Push((level, node));
                             result.Nodes.Add(node);
@@ -125,22 +133,29 @@ public sealed class DocxParser
                         {
                             int level = inferredLevel.Value;
 
-                            var node = new Node
-                            {
-                                Id = Guid.NewGuid(),
-                                TemplateId = templateId,
-                                Type = $"Heading{level}", // important for consistency
-                                Title = text,
-                                OrderIndex = orderIndex++,
-                                MetadataJson = "{\"inferred\": true}"
-                            };
 
                             while (stack.Count > 0 && stack.Peek().Level >= level)
                             {
                                 stack.Pop();
                             }
 
-                            node.ParentId = stack.Count > 0 ? stack.Peek().Node.Id : null;
+                            Guid? parentId = GetCurrentParentId(stack);
+
+                            if (!childOrderMap.ContainsKey(parentId))
+                                childOrderMap[parentId] = 0;
+
+                            int localOrder = childOrderMap[parentId]++;
+
+                            var node = new Node
+                            {
+                                ParentId = parentId,
+                                Id = GenerateDeterministicGuid(idCounter++),
+                                TemplateId = templateId,
+                                Type = MapHeadingType(level),
+                                Title = text,
+                                OrderIndex = localOrder,
+                                MetadataJson = null
+                            };
 
                             stack.Push((level, node));
                             result.Nodes.Add(node);
@@ -165,14 +180,21 @@ public sealed class DocxParser
                                 heightEmu
                             });
 
+                            Guid? parentId = GetCurrentParentId(stack);
+
+                            if (!childOrderMap.ContainsKey(parentId))
+                                childOrderMap[parentId] = 0;
+
+                            int localOrder = childOrderMap[parentId]++;
+
                             var imageNode = new Node
                             {
-                                Id = Guid.NewGuid(),
+                                ParentId = parentId,
+                                Id = GenerateDeterministicGuid(idCounter++),
                                 TemplateId = templateId,
-                                ParentId = GetCurrentParentId(stack),
                                 Type = "Image",
                                 Title = "Image",
-                                OrderIndex = orderIndex++,
+                                OrderIndex = localOrder,
                                 MetadataJson = metadata
                             };
 
@@ -197,19 +219,30 @@ public sealed class DocxParser
                             // Step back one so outer for-loop increments correctly
                             i--;
 
+                            string listType = p?.ParagraphProperties?.NumberingProperties != null
+                                ? "numbered"
+                                : "bullet";
                             var metadata = JsonSerializer.Serialize(new
                             {
+                                listType,
                                 items = listItems
                             });
 
+                            Guid? parentId = GetCurrentParentId(stack);
+
+                            if (!childOrderMap.ContainsKey(parentId))
+                                childOrderMap[parentId] = 0;
+
+                            int localOrder = childOrderMap[parentId]++;
+
                             var listNode = new Node
                             {
-                                Id = Guid.NewGuid(),
+                                ParentId = parentId,
+                                Id = GenerateDeterministicGuid(idCounter++),
                                 TemplateId = templateId,
-                                ParentId = GetCurrentParentId(stack),
                                 Type = "List",
                                 Title = "List",
-                                OrderIndex = orderIndex++,
+                                OrderIndex = localOrder,
                                 MetadataJson = metadata
                             };
 
@@ -217,26 +250,31 @@ public sealed class DocxParser
                             continue;
                         }
 
-                        // 10. Classify remaining text content as either "Sentence" or "Paragraph" based on heuristics
+                        // 10. Classify remaining text
                         if (!string.IsNullOrWhiteSpace(text))
                         {
-                            string type = IsSentence(text)
-                                ? "Sentence"
-                                : "Paragraph";
+                            string type = "Text";
 
                             var metadata = JsonSerializer.Serialize(new
                             {
-                                classification = type
+                                defaultText = text
                             });
+
+                            Guid? parentId = GetCurrentParentId(stack);
+
+                            if (!childOrderMap.ContainsKey(parentId))
+                                childOrderMap[parentId] = 0;
+
+                            int localOrder = childOrderMap[parentId]++;
 
                             var textNode = new Node
                             {
-                                Id = Guid.NewGuid(),
+                                ParentId = parentId,
+                                Id = GenerateDeterministicGuid(idCounter++),
                                 TemplateId = templateId,
-                                ParentId = GetCurrentParentId(stack),
                                 Type = type,
                                 Title = text,
-                                OrderIndex = orderIndex++,
+                                OrderIndex = localOrder,
                                 MetadataJson = metadata
                             };
 
@@ -271,14 +309,20 @@ public sealed class DocxParser
                             tableData
                         });
 
+                        Guid? parentId = GetCurrentParentId(stack);
+
+                        if (!childOrderMap.ContainsKey(parentId))
+                            childOrderMap[parentId] = 0;
+
+                        int localOrder = childOrderMap[parentId]++;
+
                         var tableNode = new Node
-                        {
-                            Id = Guid.NewGuid(),
+                        {   ParentId = parentId,
+                            Id = GenerateDeterministicGuid(idCounter++),
                             TemplateId = templateId,
-                            ParentId = GetCurrentParentId(stack),
                             Type = "Table",
                             Title = "Table",
-                            OrderIndex = orderIndex++,
+                            OrderIndex = localOrder,
                             MetadataJson = metadata
                         };
 
@@ -309,6 +353,15 @@ public sealed class DocxParser
         return int.MaxValue; // fallback (shouldn't happen for valid headings)
     }
 
+    private static string MapHeadingType(int level)
+    {
+        return level switch
+        {
+            1 => "section",
+            2 => "subsection",
+            _ => "subsection"
+        };
+    }
      private static Guid? GetCurrentParentId(
         Stack<(int Level, Node Node)> headingStack)
     {
@@ -317,15 +370,9 @@ public sealed class DocxParser
             ? headingStack.Peek().Node.Id
             : null;
     }
-
-    private static bool IsSentence(string text)
+    private static Guid GenerateDeterministicGuid(int i)
     {
-        // Short text with <= 1 sentence-ending punctuation mark
-        // is treated as a sentence instead of full paragraph.
-        int punctuationCount =
-            text.Count(c => c == '.' || c == '!' || c == '?');
-
-        return punctuationCount <= 1 && text.Length < 120;
+        return Guid.Parse($"00000000-0000-4000-8000-{i.ToString().PadLeft(12, '0')}");
     }
 }
 //12. Add heuristics to infer headings in documents that don't use Word's built-in heading styles
@@ -391,4 +438,5 @@ public static class HeuristicHeadingDetector
 
             return 0;
         }
+        
     }
